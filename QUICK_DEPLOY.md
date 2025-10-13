@@ -35,13 +35,16 @@ git push -u origin main
 2. Click "New Project"
 3. Import your `cashkaro-clone` repository
 4. **Important**: Set Root Directory to `frontend`
-5. Add Environment Variables:
+5. Vercel will auto-detect Next.js and configure build settings automatically
+6. Add Environment Variables:
    ```
    NEXT_PUBLIC_API_URL=https://your-backend-url.onrender.com
    NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
    ```
-6. Click "Deploy"
-7. **Your frontend will be live at**: `https://your-app.vercel.app`
+7. Click "Deploy"
+8. **Your frontend will be live at**: `https://your-app.vercel.app`
+
+**Note**: Vercel will automatically detect Next.js and configure the build process. No additional configuration needed!
 
 ### 3. Deploy Backend (Render)
 
