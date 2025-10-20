@@ -1,0 +1,265 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Enums ----
+
+enum CashbackType {
+  PERCENT
+  FLAT
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum TransactionType {
+  CASHBACK
+  REFERRAL_BONUS
+}
+
+enum PayoutStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum PayoutMethod {
+  BANK
+  UPI
+}
+
+enum ReferralStatus {
+  TRACKED
+  CREDITED
+}
+
+// ---- NextAuth base models ----
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // App relations
+  clicks        Click[]
+  transactions  Transaction[]
+  wallet        Wallet?
+  payoutRequests PayoutRequest[]
+
+  referralsMade Referral[] @relation("Referrer")
+  referredAs    Referral[] @relation("Referred")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---- Domain models ----
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  merchants Merchant[]
+  offers    Offer[]
+}
+
+model Merchant {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  logoUrl     String?
+  websiteUrl  String?
+  description String?
+  isFeatured  Boolean     @default(false)
+  rating      Float?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  offers      Offer[]
+  clicks      Click[]
+  transactions Transaction[]
+
+  @@index([categoryId])
+}
+
+model Offer {
+  id           String       @id @default(cuid())
+  merchantId   String
+  merchant     Merchant     @relation(fields: [merchantId], references: [id])
+  categoryId   String?
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  title        String
+  slug         String       @unique
+  description  String?
+  cashbackType CashbackType
+  // If cashbackType=PERCENT, cashbackValue is basis points (1% = 100 bps)
+  // If cashbackType=FLAT, cashbackValue is minor currency units (e.g., paise)
+  cashbackValue Int?
+  couponCode   String?
+  terms        String?
+  landingUrl   String?
+  affiliateUrl String?
+  validFrom    DateTime?
+  validTo      DateTime?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  clicks       Click[]
+  transactions Transaction[]
+
+  @@index([merchantId, isActive])
+  @@index([categoryId])
+}
+
+model Click {
+  id          String    @id @default(cuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  merchantId  String
+  merchant    Merchant  @relation(fields: [merchantId], references: [id])
+  offerId     String?
+  offer       Offer?    @relation(fields: [offerId], references: [id])
+  outboundUrl String?
+  finalUrl    String?
+  ip          String?
+  userAgent   String?
+  ref         String?
+  status      String?
+  createdAt   DateTime  @default(now())
+
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([offerId])
+}
+
+model Transaction {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  merchantId     String
+  merchant       Merchant         @relation(fields: [merchantId], references: [id])
+  offerId        String?
+  offer          Offer?           @relation(fields: [offerId], references: [id])
+  clickId        String?
+  click          Click?           @relation(fields: [clickId], references: [id])
+  orderId        String?
+  // Amounts are stored in minor units (e.g., paise)
+  orderAmount    Int
+  cashbackAmount Int
+  status         TransactionStatus @default(PENDING)
+  type           TransactionType   @default(CASHBACK)
+  tripDate       DateTime          @default(now())
+  approvedAt     DateTime?
+  rejectedReason String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([status])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  // Balances stored in minor units (e.g., paise)
+  pending   Int      @default(0)
+  confirmed Int      @default(0)
+  approved  Int      @default(0)
+  paid      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PayoutRequest {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  // Amount stored in minor units (e.g., paise)
+  amount    Int
+  method    PayoutMethod
+  details   Json
+  status    PayoutStatus @default(REQUESTED)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String
+  referrer    User           @relation("Referrer", fields: [referrerId], references: [id])
+  referredId  String
+  referred    User           @relation("Referred", fields: [referredId], references: [id])
+  code        String         @unique
+  status      ReferralStatus @default(TRACKED)
+  createdAt   DateTime       @default(now())
+}
