@@ -9,12 +9,19 @@
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
-    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "deploy:vercel": "cd client && vercel --prod",
+    "deploy:railway": "cd server && railway up",
+    "make-live": "./make_live.sh"
   },
   "keywords": ["cashback", "shopping", "deals", "coupons", "ecommerce"],
   "author": "CashKaro Clone Team",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
