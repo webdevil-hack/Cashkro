@@ -1,0 +1,17 @@
+{
+  "name": "cashkaro-clone",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace=@ck/api run dev",
+    "dev:web": "npm --workspace=@ck/web run dev",
+    "build": "npm run -w @ck/api build && npm run -w @ck/web build",
+    "prisma:generate": "npm -w @ck/api run prisma:generate",
+    "db:migrate": "npm -w @ck/api run db:migrate",
+    "db:seed": "npm -w @ck/api run db:seed"
+  }
+}
