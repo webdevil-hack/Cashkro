@@ -149,7 +149,7 @@ export default function DashboardPage() {
       title: 'Pending Cashback',
       value: formatCurrency(stats.pendingCashback),
       change: '₹850',
-      changeType: 'neutral' as const,
+      changeType: 'positive' as const,
       icon: Gift,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100'
@@ -184,7 +184,7 @@ export default function DashboardPage() {
                       {stat.changeType === 'positive' && (
                         <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
                       )}
-                      {stat.changeType === 'negative' && (
+                      {stat.changeType === 'positive' && stat.change.startsWith('-') && (
                         <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
                       )}
                       <span className={`text-sm ${
