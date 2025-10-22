@@ -1,0 +1,385 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String?
+  firstName       String
+  lastName        String
+  phone           String?
+  avatar          String?
+  isEmailVerified Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  role            UserRole @default(USER)
+  
+  // Wallet and cashback
+  walletBalance   Decimal  @default(0) @db.Decimal(10, 2)
+  totalEarned     Decimal  @default(0) @db.Decimal(10, 2)
+  totalWithdrawn  Decimal  @default(0) @db.Decimal(10, 2)
+  
+  // Referral system
+  referralCode    String   @unique
+  referredBy      String?
+  referrer        User?    @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals       User[]   @relation("UserReferrals")
+  
+  // Social auth
+  googleId        String?  @unique
+  facebookId      String?  @unique
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLoginAt     DateTime?
+  
+  // Relations
+  transactions    Transaction[]
+  cashbacks       Cashback[]
+  withdrawals     Withdrawal[]
+  favorites       UserFavorite[]
+  clicks          ClickTracking[]
+  notifications   Notification[]
+  
+  @@map("users")
+}
+
+model Store {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  description     String?
+  logo            String
+  banner          String?
+  website         String
+  
+  // Cashback rates
+  cashbackRate    Decimal  @db.Decimal(5, 2) // percentage
+  maxCashback     Decimal? @db.Decimal(10, 2)
+  
+  // Store details
+  category        String
+  tags            String[]
+  isActive        Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  priority        Int      @default(0)
+  
+  // Affiliate details
+  affiliateNetwork String?
+  trackingDomain   String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  coupons         Coupon[]
+  deals           Deal[]
+  cashbacks       Cashback[]
+  favorites       UserFavorite[]
+  clicks          ClickTracking[]
+  
+  @@map("stores")
+}
+
+model Coupon {
+  id              String      @id @default(cuid())
+  title           String
+  description     String?
+  code            String
+  type            CouponType
+  
+  // Discount details
+  discountType    DiscountType
+  discountValue   Decimal     @db.Decimal(10, 2)
+  maxDiscount     Decimal?    @db.Decimal(10, 2)
+  minOrderValue   Decimal?    @db.Decimal(10, 2)
+  
+  // Validity
+  isActive        Boolean     @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  usageLimit      Int?
+  usageCount      Int         @default(0)
+  
+  // Store relation
+  storeId         String
+  store           Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  transactions    Transaction[]
+  
+  @@map("coupons")
+}
+
+model Deal {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  image           String?
+  originalPrice   Decimal? @db.Decimal(10, 2)
+  discountedPrice Decimal? @db.Decimal(10, 2)
+  discountPercent Int?
+  
+  // Deal details
+  isActive        Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  priority        Int      @default(0)
+  category        String?
+  tags            String[]
+  
+  // Validity
+  startDate       DateTime?
+  endDate         DateTime?
+  
+  // Store relation
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  // Tracking
+  clickCount      Int      @default(0)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("deals")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  storeId         String?
+  couponId        String?
+  
+  // Transaction details
+  orderValue      Decimal           @db.Decimal(10, 2)
+  cashbackAmount  Decimal           @db.Decimal(10, 2)
+  status          TransactionStatus @default(PENDING)
+  
+  // Tracking
+  clickId         String?
+  orderId         String?
+  
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  confirmedAt     DateTime?
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon          Coupon?           @relation(fields: [couponId], references: [id])
+  cashback        Cashback?
+  
+  @@map("transactions")
+}
+
+model Cashback {
+  id              String            @id @default(cuid())
+  userId          String
+  storeId         String
+  transactionId   String            @unique
+  
+  // Cashback details
+  amount          Decimal           @db.Decimal(10, 2)
+  status          CashbackStatus    @default(PENDING)
+  
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  confirmedAt     DateTime?
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store           Store             @relation(fields: [storeId], references: [id])
+  transaction     Transaction       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  @@map("cashbacks")
+}
+
+model Withdrawal {
+  id              String           @id @default(cuid())
+  userId          String
+  amount          Decimal          @db.Decimal(10, 2)
+  method          WithdrawalMethod
+  status          WithdrawalStatus @default(PENDING)
+  
+  // Payment details
+  accountDetails  Json?
+  transactionRef  String?
+  
+  // Timestamps
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  processedAt     DateTime?
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("withdrawals")
+}
+
+model ClickTracking {
+  id              String   @id @default(cuid())
+  userId          String?
+  storeId         String
+  
+  // Tracking details
+  ipAddress       String
+  userAgent       String?
+  referrer        String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User?    @relation(fields: [userId], references: [id])
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  @@map("click_tracking")
+}
+
+model UserFavorite {
+  id              String   @id @default(cuid())
+  userId          String
+  storeId         String
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, storeId])
+  @@map("user_favorites")
+}
+
+model Notification {
+  id              String             @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            NotificationType
+  isRead          Boolean            @default(false)
+  
+  // Additional data
+  data            Json?
+  
+  // Timestamps
+  createdAt       DateTime           @default(now())
+  
+  // Relations
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+model Category {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?
+  image           String?
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("categories")
+}
+
+model Banner {
+  id              String      @id @default(cuid())
+  title           String
+  description     String?
+  image           String
+  link            String?
+  type            BannerType  @default(PROMOTIONAL)
+  position        String      @default("home")
+  isActive        Boolean     @default(true)
+  priority        Int         @default(0)
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  startDate       DateTime?
+  endDate         DateTime?
+  
+  @@map("banners")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum CouponType {
+  CODE
+  DEAL
+  CASHBACK
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+  FREE_SHIPPING
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REJECTED
+}
+
+enum CashbackStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
+enum WithdrawalMethod {
+  BANK_TRANSFER
+  PAYTM
+  UPI
+  PAYPAL
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum NotificationType {
+  CASHBACK
+  WITHDRAWAL
+  PROMOTION
+  SYSTEM
+}
+
+enum BannerType {
+  PROMOTIONAL
+  FEATURED_STORE
+  DEAL_OF_DAY
+}
