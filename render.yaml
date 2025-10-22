@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: cashkaro-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        fromDatabase:
+          name: cashkaro-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromDatabase:
+          name: cashkaro-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://cashkaro-clone.vercel.app
+      - key: CORS_ORIGIN
+        value: https://cashkaro-clone.vercel.app
+
+databases:
+  - name: cashkaro-mongodb
+    plan: free
+    databaseName: cashkaro
+  - name: cashkaro-redis
+    plan: free
